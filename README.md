@@ -1,63 +1,89 @@
-# 🤖 Trugen: AI Ticket Resolution System
+# 🤖 Trugen AI Support: Smart Ticket Resolution System
 
-Trugen is a streamlined customer support platform that leverages **AI Multi-Agent Systems (CrewAI)** to automatically triage, classify, and assign incoming support tickets.
+Trugen is a next-generation AI-powered ticket resolution system designed to streamline customer support using autonomous agents, cloud persistence, and a unified portal experience.
 
-## 🚀 Key Features
+## ✨ Key Features
 
-- **Multi-Agent Triage**: 5 specialized AI agents analyze every ticket for urgency, category, and technical implications.
-- **Unified Interface**: Single navigation hub for both **Customer Portal** and **Admin Dashboard**.
-- **Real-time Tracking**: Modern User UI to raise and track tickets with live activity timelines.
-- **Admin Command Center**: Ticket management, analytics, and automated resolution email notifications.
-- **Persistent Data**: Powered by **DuckDB** for ultra-fast local data storage.
+- **Unified Access Gateway**: A single entry point for both Customers and Admins with role-based routing.
+- **Session-Based Auto-fill**: Customers log in once, and their contact details are automatically pre-filled in every ticket, saving time and ensuring accuracy.
+- **Gemini 2.0 Flash Backend**: Powered by Google's latest high-speed LLM for rapid and intelligent ticket analysis.
+- **Supabase Cloud Persistence**: Robust PostgreSQL-based data storage for tickets, users, and audit logs.
+- **Autonomous Multi-Agent Analysis**: CrewAI agents work in the background to summarize, classify, and assign tickets to the right managers automatically.
+- **Professional Dashboard**: Advanced analytics, ticket filtering, and management controls for support leads.
+- **Automated Email Notifications**: Real-time SMTP alerts for users when their issues are resolved.
 
 ## 🛠️ Tech Stack
 
-- **Framework**: Streamlit
-- **AI Orchestration**: CrewAI
-- **LLM**: OpenAI (GPT-4o)
-- **Database**: DuckDB
-- **Automation**: SMTP Email Notifications
+- **Framework**: [Streamlit](https://streamlit.io/) (Frontend/UI)
+- **AI Orchestration**: [CrewAI](https://crewai.com/)
+- **LLM**: Google Gemini 2.0 Flash (via `crewai[google-genai]`)
+- **Database**: [Supabase](https://supabase.com/) (PostgreSQL)
+- **Programming Language**: Python 3.10+
+- **Environment Management**: [uv](https://github.com/astral-sh/uv)
 
 ## 📥 Installation
 
 1. **Clone the repository**:
 
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/Bharath8080/AI-Ticket-Resolution-System-Superbase.git
    cd ticket_resolution_system
    ```
 
-2. **Install Dependencies** (using `uv` recommended):
+2. **Install Dependencies** (using `uv` is recommended):
 
    ```bash
    uv sync
    ```
 
 3. **Configure Environment**:
-   Create a `.env` file with the following:
+   Create a `.env` file in the root directory:
+
    ```env
-   OPENAI_API_KEY=your_key_here
-   ADMIN_PASSWORD=admin123
-   # Optional SMTP Settings for Emails
+   # LLM Keys
+   GEMINI_API_KEY=your_google_ai_studio_key
+
+   # Database (Supabase)
+   SUPABASE_URL=your_supabase_project_url
+   SUPABASE_KEY=your_supabase_anon_key
+
+   # Admin Security
+   ADMIN_PASSWORD=your_admin_password
+
+   # Email Service (Optional)
    SMTP_SERVER=smtp.gmail.com
    SMTP_PORT=587
    SMTP_USER=your_email@gmail.com
    SMTP_PASSWORD=your_app_password
+
+   # System Settings
+   CREWAI_TELEMETRY_OPTOUT=true
    ```
 
-## 🏃 How to Run
+## 🚀 Running the App
 
-Start the unified application:
+Start the Streamlit application:
 
 ```bash
 uv run streamlit run app.py
 ```
 
-## 📁 Project Structure
+## 📂 Project Structure
 
-- `app.py`: Main entry point and navigation.
-- `pages/`: Individual portal logic (User & Admin).
-- `agents.py`: CrewAI agent definitions.
-- `ticket_processor.py`: Orchestrates the AI analysis tasks.
-- `database.py`: SQL operations and schema management.
-- `email_service.py`: Automated notification logic.
+- `app.py`: Entry point with Unified Login and dynamic routing.
+- `portals/`:
+  - `user_portal.py`: Customer ticket submission and tracking.
+  - `admin_dashboard.py`: Admin analytics and management.
+- `agents.py`: CrewAI agent definitions using Gemini.
+- `ticket_processor.py`: Background logic for multi-agent task orchestration.
+- `database.py`: Supabase client and CRUD operations.
+- `email_service.py`: Automated resolution alert system.
+- `supabase_schema.sql`: Database initialization script.
+
+## 🤝 Contributing
+
+Feel free to fork this project, submit PRs, or report issues!
+
+---
+
+_Built with ❤️ by the Trugen Team_

@@ -15,8 +15,23 @@ init_db()
 st.set_page_config(
     page_title="Trugen AI Support",
     page_icon="🤖",
-    layout="centered"
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
+
+# Force hide sidebar when not logged in
+if "logged_in" not in st.session_state or not st.session_state.logged_in:
+    st.markdown(
+        """
+        <style>
+            [data-testid="stSidebarNav"] {display: none;}
+            [data-testid="stSidebar"] {display: none;}
+            .st-emotion-cache-1wf8p8v {display: none;} /* Hide the sidebar collapse button */
+            button[kind="header"] {display: none;} /* Hide the hamburger menu */
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # Session state initialization
 if "logged_in" not in st.session_state:
@@ -77,9 +92,9 @@ if not st.session_state.logged_in:
 # --- AFTER LOGIN ---
 # Define the navigation based on role
 if st.session_state.role == "User":
-    pages = [st.Page("pages/user_portal.py", title="Customer Portal", icon="🎫")]
+    pages = [st.Page("portals/user_portal.py", title="Customer Portal", icon="🎫")]
 else:
-    pages = [st.Page("pages/admin_dashboard.py", title="Admin Dashboard", icon="🛡️")]
+    pages = [st.Page("portals/admin_dashboard.py", title="Admin Dashboard", icon="🛡️")]
 
 # Sidebar info
 with st.sidebar:
