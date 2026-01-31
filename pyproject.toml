@@ -5,10 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "crewai>=1.9.2",
+    "crewai[google-genai]>=1.9.2",
     "duckdb>=1.4.4",
     "openai>=1.83.0",
     "plotly>=6.5.2",
     "python-dotenv>=1.1.1",
     "streamlit>=1.53.1",
+    "supabase>=2.27.2",
 ]

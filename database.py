@@ -1,149 +1,109 @@
-import duckdb
 import os
 from datetime import datetime
+from supabase import create_client, Client
+from dotenv import load_dotenv
+import pandas as pd
 
-DB_PATH = "tickets.db"
+load_dotenv()
 
-def get_db_connection():
-    return duckdb.connect(DB_PATH)
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+def get_supabase_client() -> Client:
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def init_db():
-    conn = get_db_connection()
+    """
+    Supabase tables should be created in the dashboard.
+    This function will seed the 'managers' table if it's empty.
+    """
+    client = get_supabase_client()
     
-    # Create Users table
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id VARCHAR PRIMARY KEY,
-            name VARCHAR,
-            email VARCHAR,
-            phone VARCHAR
-        )
-    """)
-    
-    # Create Managers table
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS managers (
-            id INTEGER PRIMARY KEY,
-            name VARCHAR,
-            role VARCHAR,
-            department VARCHAR,
-            is_active BOOLEAN DEFAULT TRUE
-        )
-    """)
-    
-    # Seed Managers if empty
-    res = conn.execute("SELECT COUNT(*) FROM managers").fetchone()[0]
-    if res == 0:
-        managers = [
-            (1, 'Amit Patel', 'Support Lead', 'Customer Support'),
-            (2, 'Anjali Singh', 'QA Lead', 'Quality Assurance'),
-            (3, 'Priya Sharma', 'Backend Lead', 'Backend Engineering'),
-            (4, 'Rajesh Kumar', 'SRE Lead', 'Infrastructure/SRE'),
-            (5, 'Vikram Reddy', 'Security Lead', 'Security')
-        ]
-        for m in managers:
-            conn.execute("INSERT INTO managers (id, name, role, department) VALUES (?, ?, ?, ?)", m)
-
-    # Create Tickets table
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS tickets (
-            ticket_id VARCHAR PRIMARY KEY,
-            user_id VARCHAR,
-            title VARCHAR,
-            description VARCHAR,
-            category VARCHAR,
-            severity VARCHAR,
-            priority VARCHAR,
-            status VARCHAR DEFAULT 'Open',
-            assigned_to INTEGER,
-            assignment_reason TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            resolved_at TIMESTAMP,
-            resolution_notes TEXT,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (assigned_to) REFERENCES managers(id)
-        )
-    """)
-    
-    # Create Ticket Logs table
-    conn.execute("CREATE SEQUENCE IF NOT EXISTS log_id_seq")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS ticket_logs (
-            id INTEGER PRIMARY KEY DEFAULT nextval('log_id_seq'),
-            ticket_id VARCHAR,
-            action VARCHAR,
-            details TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    conn.close()
+    try:
+        # Check if managers table has data
+        response = client.table("managers").select("id", count="exact").execute()
+        if response.count == 0:
+            managers = [
+                {"id": 1, "name": "Amit Patel", "role": "Support Lead", "department": "Customer Support"},
+                {"id": 2, "name": "Anjali Singh", "role": "QA Lead", "department": "Quality Assurance"},
+                {"id": 3, "name": "Priya Sharma", "role": "Backend Lead", "department": "Backend Engineering"},
+                {"id": 4, "name": "Rajesh Kumar", "role": "SRE Lead", "department": "Infrastructure/SRE"},
+                {"id": 5, "name": "Vikram Reddy", "role": "Security Lead", "department": "Security"}
+            ]
+            client.table("managers").insert(managers).execute()
+    except Exception as e:
+        print(f"⚠️ Error initializing/seeding database: {e}")
 
 def add_user(user_id, name, email, phone):
-    conn = get_db_connection()
-    conn.execute("INSERT OR IGNORE INTO users (id, name, email, phone) VALUES (?, ?, ?, ?)", 
-                 (user_id, name, email, phone))
-    conn.close()
+    client = get_supabase_client()
+    client.table("users").upsert({"id": user_id, "name": name, "email": email, "phone": phone}).execute()
 
 def create_ticket(ticket_id, user_id, title, description, category=None):
-    conn = get_db_connection()
-    conn.execute("""
-        INSERT INTO tickets (ticket_id, user_id, title, description, category, status) 
-        VALUES (?, ?, ?, ?, ?, 'Open')
-    """, (ticket_id, user_id, title, description, category))
-    conn.close()
+    client = get_supabase_client()
+    client.table("tickets").insert({
+        "ticket_id": ticket_id,
+        "user_id": user_id,
+        "title": title,
+        "description": description,
+        "category": category,
+        "status": "Open"
+    }).execute()
     log_action(ticket_id, "Ticket Created", f"Ticket raised by user {user_id}")
 
 def update_ticket_assignment(ticket_id, category, severity, priority, assigned_to_id, reason):
-    conn = get_db_connection()
-    conn.execute("""
-        UPDATE tickets 
-        SET category = ?, severity = ?, priority = ?, assigned_to = ?, assignment_reason = ?, status = 'Assigned'
-        WHERE ticket_id = ?
-    """, (category, severity, priority, assigned_to_id, reason, ticket_id))
-    conn.close()
+    client = get_supabase_client()
+    client.table("tickets").update({
+        "category": category,
+        "severity": severity,
+        "priority": priority,
+        "assigned_to": assigned_to_id,
+        "assignment_reason": reason,
+        "status": "Assigned"
+    }).eq("ticket_id", ticket_id).execute()
     log_action(ticket_id, "Ticket Assigned", f"Assigned to manager ID {assigned_to_id}. Reason: {reason[:100]}...")
 
 def resolve_ticket(ticket_id, notes):
-    conn = get_db_connection()
-    conn.execute("""
-        UPDATE tickets 
-        SET status = 'Resolved', resolved_at = CURRENT_TIMESTAMP, resolution_notes = ?
-        WHERE ticket_id = ?
-    """, (notes, ticket_id))
-    conn.close()
+    client = get_supabase_client()
+    client.table("tickets").update({
+        "status": "Resolved",
+        "resolved_at": datetime.now().isoformat(),
+        "resolution_notes": notes
+    }).eq("ticket_id", ticket_id).execute()
     log_action(ticket_id, "Ticket Resolved", notes)
 
 def log_action(ticket_id, action, details):
-    conn = get_db_connection()
-    conn.execute("INSERT INTO ticket_logs (ticket_id, action, details) VALUES (?, ?, ?)", 
-                 (ticket_id, action, details))
-    conn.close()
+    client = get_supabase_client()
+    client.table("ticket_logs").insert({
+        "ticket_id": ticket_id,
+        "action": action,
+        "details": details
+    }).execute()
 
 def get_all_tickets():
-    conn = get_db_connection()
-    df = conn.execute("""
-        SELECT t.*, m.name as manager_name 
-        FROM tickets t 
-        LEFT JOIN managers m ON t.assigned_to = m.id
-    """).fetchdf()
-    conn.close()
+    client = get_supabase_client()
+    # Join with managers using Supabase select syntax
+    response = client.table("tickets").select("*, managers(name)").execute()
+    df = pd.DataFrame(response.data)
+    if not df.empty and 'managers' in df.columns:
+        df['manager_name'] = df['managers'].apply(lambda x: x['name'] if x and 'name' in x else None)
+    else:
+         df['manager_name'] = None
     return df
 
 def get_ticket_details(ticket_id):
-    conn = get_db_connection()
-    ticket = conn.execute("""
-        SELECT t.*, m.name as manager_name 
-        FROM tickets t 
-        LEFT JOIN managers m ON t.assigned_to = m.id 
-        WHERE t.ticket_id = ?
-    """, (ticket_id,)).fetchdf()
-    logs = conn.execute("SELECT * FROM ticket_logs WHERE ticket_id = ? ORDER BY timestamp DESC", (ticket_id,)).fetchdf()
-    conn.close()
-    return ticket, logs
+    client = get_supabase_client()
+    
+    ticket_response = client.table("tickets").select("*, managers(name)").eq("ticket_id", ticket_id).execute()
+    logs_response = client.table("ticket_logs").select("*").eq("ticket_id", ticket_id).order("timestamp", desc=True).execute()
+    
+    ticket_df = pd.DataFrame(ticket_response.data)
+    if not ticket_df.empty and 'managers' in ticket_df.columns:
+        ticket_df['manager_name'] = ticket_df['managers'].apply(lambda x: x['name'] if x and 'name' in x else None)
+    
+    logs_df = pd.DataFrame(logs_response.data)
+    return ticket_df, logs_df
 
 def get_managers():
-    conn = get_db_connection()
-    managers = conn.execute("SELECT * FROM managers WHERE is_active = TRUE").fetchdf()
-    conn.close()
-    return managers
+    client = get_supabase_client()
+    response = client.table("managers").select("*").eq("is_active", True).execute()
+    return pd.DataFrame(response.data)

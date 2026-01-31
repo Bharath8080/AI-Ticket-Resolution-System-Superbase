@@ -6,8 +6,8 @@ load_dotenv()
 
 def get_llm():
     return LLM(
-        model="openai/gpt-4o",
-        api_key=os.getenv("OPENAI_API_KEY"),
+        model="gemini/gemini-3-flash-preview",
+        api_key=os.getenv("GEMINI_API_KEY"),
         temperature=0.7
     )
 

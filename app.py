@@ -8,7 +8,6 @@ from database import init_db
 
 load_dotenv()
 
-
 # Initialize Database at the very beginning
 init_db()
 
@@ -19,48 +18,80 @@ st.set_page_config(
     layout="centered"
 )
 
-# Title and description
-st.markdown(
-    """
-    <h1 style='text-align:center'>
-        <span style='color:#00b3ff;'>AI Ticket Resolution System</span>
-    </h1>
-    """,
-    unsafe_allow_html=True
-)
+# Session state initialization
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "role" not in st.session_state:
+    st.session_state.role = None
+if "user_name" not in st.session_state:
+    st.session_state.user_name = ""
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
 
-# Define pages
-pages_dict = {
-    "🎫 User Portal": st.Page("pages/user_portal.py", title="User Portal", default=True),
-    "🛡️ Admin Dashboard": st.Page("pages/admin_dashboard.py", title="Admin Dashboard"),
-}
+def logout():
+    st.session_state.logged_in = False
+    st.session_state.role = None
+    st.session_state.user_name = ""
+    st.session_state.user_email = ""
+    st.rerun()
 
-# Define pages with icons
-pages_config = {
-    "User Portal": {"page": pages_dict["🎫 User Portal"], "icon": ":material/support_agent:"},
-    "Admin Dashboard": {"page": pages_dict["🛡️ Admin Dashboard"], "icon": ":material/admin_panel_settings:"},
-}
+# --- LOGIN SCREEN ---
+if not st.session_state.logged_in:
+    st.markdown("<h1 style='text-align: center; color: #00b3ff;'>Trugen AI Support</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #888;'>Welcome! Please log in to continue.</p>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        with st.container(border=True):
+            st.subheader("👤 User Portal")
+            st.write("Raise and track your support tickets.")
+            user_name = st.text_input("Full Name", placeholder="John Doe")
+            user_email = st.text_input("Email Address", placeholder="john@example.com")
+            if st.button("Enter Portal", use_container_width=True):
+                if user_name and user_email:
+                    st.session_state.logged_in = True
+                    st.session_state.role = "User"
+                    st.session_state.user_name = user_name
+                    st.session_state.user_email = user_email
+                    st.rerun()
+                else:
+                    st.error("Please provide both name and email.")
+
+    with col2:
+        with st.container(border=True):
+            st.subheader("🛡️ Admin Dashboard")
+            st.write("Manage tickets and view analytics.")
+            admin_password = st.text_input("Admin Password", type="password")
+            if st.button("Login as Admin", use_container_width=True):
+                expected_password = os.getenv("ADMIN_PASSWORD", "admin123")
+                if admin_password == expected_password:
+                    st.session_state.logged_in = True
+                    st.session_state.role = "Admin"
+                    st.rerun()
+                else:
+                    st.error("Invalid Admin Password")
+    st.stop()
+
+# --- AFTER LOGIN ---
+# Define the navigation based on role
+if st.session_state.role == "User":
+    pages = [st.Page("pages/user_portal.py", title="Customer Portal", icon="🎫")]
+else:
+    pages = [st.Page("pages/admin_dashboard.py", title="Admin Dashboard", icon="🛡️")]
+
+# Sidebar info
+with st.sidebar:
+    st.title("Trugen AI")
+    if st.session_state.role == "User":
+        st.write(f"Logged in as: **{st.session_state.user_name}**")
+    else:
+        st.write("Logged in as: **Support Admin**")
+    
+    if st.button("🚪 Logout", use_container_width=True):
+        logout()
 
 # Navigation setup
-pg = st.navigation(list(pages_dict.values()), position="hidden")
-
-# Sidebar navigation or top navigation
-st.markdown("<br>", unsafe_allow_html=True)
-cols = st.columns([1, 2, 1])
-with cols[1]:
-    selected_page_label = st.pills(
-        "Navigation",
-        options=list(pages_config.keys()),
-        format_func=lambda x: pages_config[x]["icon"] + " " + x,
-        selection_mode="single",
-        label_visibility="collapsed",
-        default="User Portal" if pg.title == "User Portal" else "Admin Dashboard"
-    )
-
-# Routing logic
-if selected_page_label:
-    target_page = pages_config[selected_page_label]["page"]
-    if pg.title != target_page.title:
-        st.switch_page(target_page)
-
+pg = st.navigation(pages, position="hidden")
 pg.run()

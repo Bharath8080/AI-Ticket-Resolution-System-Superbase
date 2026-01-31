@@ -15,6 +15,7 @@ def generate_ticket_id():
 def run_agent_in_background(ticket_data):
     process_ticket(ticket_data)
 
+# Header
 st.markdown("<h1 style='text-align: center;'>🎫 Customer Support Portal</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
@@ -22,20 +23,28 @@ tab1, tab2 = st.tabs(["Raise a Ticket", "Track Status"])
 
 with tab1:
     st.markdown("<h2 style='text-align: center;'>Submit your issue</h2>", unsafe_allow_html=True)
+    
+    # Get session data for auto-fill
+    session_name = st.session_state.get("user_name", "")
+    session_email = st.session_state.get("user_email", "")
+
     with st.form("ticket_form"):
-        name = st.text_input("Full Name")
-        email = st.text_input("Email Address")
-        phone = st.text_input("Phone Number")
+        # Pre-filled fields
+        name = st.text_input("Full Name", value=session_name, disabled=True)
+        email = st.text_input("Email Address", value=session_email, disabled=True)
+        
+        # User inputs
+        phone = st.text_input("Phone Number (Optional)")
         title = st.text_input("Issue Title", placeholder="e.g. Cannot play video")
         description = st.text_area("Detailed Description", placeholder="Please provide as much detail as possible...")
         
         submitted = st.form_submit_button("Submit Ticket")
         
         if submitted:
-            if not name or not email or not title or not description:
-                st.error("Please fill in all required fields.")
+            if not title or not description:
+                st.error("Please fill in Title and Description.")
             else:
-                user_id = email # Using email as user_id for simplicity
+                user_id = email
                 add_user(user_id, name, email, phone)
                 
                 ticket_id = generate_ticket_id()
@@ -44,7 +53,7 @@ with tab1:
                 st.success(f"Ticket Created Successfully! Your Ticket ID is: **{ticket_id}**")
                 st.info("AI agents are analyzing your ticket. This may take a minute...")
                 
-                # Run AI analysis in background to avoid blocking UI
+                # Run AI analysis in background
                 ticket_data = {
                     "ticket_id": ticket_id,
                     "title": title,
@@ -55,7 +64,7 @@ with tab1:
 
 with tab2:
     st.markdown("<h2 style='text-align: center;'>Track Your Ticket</h2>", unsafe_allow_html=True)
-    search_id = st.text_input("Enter Ticket ID (e.g. INE-20260130...)")
+    search_id = st.text_input("Enter Ticket ID (e.g. TRU-20260130...)")
     if st.button("Check Status", use_container_width=True):
         if search_id:
             ticket, logs = get_ticket_details(search_id)
@@ -70,7 +79,7 @@ with tab2:
                     </div>
                 """, unsafe_allow_html=True)
 
-                # Status Metrics with Icons
+                # Status Metrics
                 c1, c2, c3 = st.columns(3)
                 
                 status_color = "#28a745" if t['status'] == 'Resolved' else ("#ffc107" if t['status'] == 'Assigned' else "#00b3ff")
@@ -109,10 +118,9 @@ with tab2:
                     elif t['status'] == 'Resolved':
                         st.success(f"**Resolution Notes:** {t['resolution_notes']}")
                         if st.button("Unsatisfied? Re-open Ticket"):
-                            from database import log_action, get_db_connection
-                            conn = get_db_connection()
-                            conn.execute("UPDATE tickets SET status = 'Open' WHERE ticket_id = ?", (search_id,))
-                            conn.close()
+                            from database import log_action, get_supabase_client
+                            client = get_supabase_client()
+                            client.table("tickets").update({"status": "Open"}).eq("ticket_id", search_id).execute()
                             log_action(search_id, "Ticket Re-opened", "User re-opened the ticket.")
                             st.warning("Ticket Re-opened and sent back to queue.")
                             st.rerun()
@@ -123,7 +131,6 @@ with tab2:
                 st.markdown("### 🕒 Activity Timeline")
                 for _, log in logs.iterrows():
                     with st.container(border=True):
-                        # Shorten timestamp for display
                         ts = str(log['timestamp']).split('.')[0]
                         st.markdown(f"**{log['action']}**")
                         st.caption(ts)
